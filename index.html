@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>:root{color-scheme:light}html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Mesa Viva</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: lobby de sala (codigo grande, estilo Among Us) + grade de cartoes de personagem para o mestre
+   + ficha unica em coluna para o jogador. Painel de edicao deslizante a direita. */
+:root {
+  --bg: #f0eeea; --surface: #fbfaf8; --surface-2: #e8e5df; --line: #d3cfc6;
+  --fg: #191b1f; --muted: #5d646e; --track: #dcd8cf;
+  --accent: #8f5f08; --accent-ink: #ffffff;
+  --hp: #c4382f; --san: #1d74b3; --pe: #7448cc; --gen: #1c8a6a; --danger: #b3261e;
+  --f-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1013; --surface: #16191e; --surface-2: #1e2229; --line: #2a303a;
+    --fg: #ebe8e1; --muted: #9aa2ae; --track: #262b33;
+    --accent: #e0ad4b; --accent-ink: #1a1304;
+    --hp: #ee6a60; --san: #55aee8; --pe: #a98af2; --gen: #4cc19a; --danger: #f0786f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1013; --surface: #16191e; --surface-2: #1e2229; --line: #2a303a;
+  --fg: #ebe8e1; --muted: #9aa2ae; --track: #262b33;
+  --accent: #e0ad4b; --accent-ink: #1a1304;
+  --hp: #ee6a60; --san: #55aee8; --pe: #a98af2; --gen: #4cc19a; --danger: #f0786f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.5rem; text-transform: uppercase; }
+h3 { font-size: 1.15rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* topo */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 1.6rem; letter-spacing: .14em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.brand::before { content: ""; width: 14px; height: 14px; background: var(--accent); transform: rotate(45deg); }
+.top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.plate { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px 6px 14px; }
+.plate-l { font-family: var(--f-display); font-weight: 600; letter-spacing: .18em; color: var(--muted); font-size: .9rem; }
+.plate-c { font-family: var(--f-mono); font-size: 1.7rem; letter-spacing: .28em; padding-left: .28em; line-height: 1; }
+
+/* botoes e campos */
+.btn { appearance: none; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 9px 14px; cursor: pointer; font-weight: 500; min-height: 40px; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn.danger.armed { background: var(--danger); color: var(--bg); }
+.btn.sm { padding: 5px 10px; min-height: 32px; font-size: .875rem; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+input[type=text], input[type=number], select, textarea {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-height: 40px; width: 100%; min-width: 0;
+}
+textarea { min-height: 76px; resize: vertical; }
+input.code { font-family: var(--f-mono); font-size: 1.5rem; letter-spacing: .3em; text-transform: uppercase; text-align: center; }
+.hint { color: var(--muted); font-size: .9rem; }
+.err { color: var(--danger); font-size: .9rem; }
+.banner { border: 1px solid var(--accent); border-radius: 6px; padding: 10px 14px; background: var(--surface); }
+
+/* home */
+.lede { color: var(--muted); max-width: 56ch; }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.rooms-list { display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.mono { font-family: var(--f-mono); letter-spacing: .12em; }
+
+/* abas */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab { appearance: none; background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; cursor: pointer; font-family: var(--f-display); font-weight: 700; font-size: 1.1rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.toolbar .field { flex: 1 1 180px; }
+
+/* cartoes de personagem (mestre) */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; align-items: start; }
+.char { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.char-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.char-name { font-family: var(--f-display); font-weight: 700; font-size: 1.6rem; line-height: 1.05; text-transform: uppercase; overflow-wrap: anywhere; }
+.char-sub { color: var(--muted); font-size: .875rem; overflow-wrap: anywhere; }
+.owner { display: inline-block; font-size: .8rem; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.owner.on { color: var(--fg); border-color: var(--gen); }
+.amt { display: flex; align-items: center; gap: 6px; }
+.amt span { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-right: 4px; }
+.chip { appearance: none; border: 1px solid var(--line); background: var(--bg); border-radius: 99px; padding: 3px 11px; cursor: pointer; font-family: var(--f-mono); font-size: .85rem; min-height: 30px; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.amt input { width: 64px; min-height: 30px; padding: 3px 8px; font-family: var(--f-mono); }
+
+/* barras */
+.bar { display: flex; flex-direction: column; gap: 5px; }
+.bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bar-l { font-family: var(--f-display); font-weight: 700; letter-spacing: .1em; font-size: 1.05rem; }
+.bar-n { font-family: var(--f-mono); display: flex; align-items: baseline; gap: 4px; color: var(--muted); }
+.bar-n b { font-weight: 500; color: var(--fg); font-size: 1.15rem; }
+.bar-n input { width: 4.2ch; min-width: 4.2ch; padding: 1px 2px; min-height: 0; border: 0; border-bottom: 1px dashed var(--muted); border-radius: 0; background: transparent; text-align: right; font-family: var(--f-mono); font-size: 1.15rem; box-sizing: content-box; }
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.track { position: relative; flex: 1; height: 16px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.track i { position: absolute; inset: 0 auto 0 0; background: var(--bar-c); transition: width .35s ease; }
+.track::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--surface) calc(10% - 2px) 10%); opacity: .7; }
+.big .track { height: 24px; }
+.big .bar-l { font-size: 1.3rem; }
+.big .bar-n b { font-size: 1.7rem; }
+.bar[data-kind="hp"] { --bar-c: var(--hp); }
+.bar[data-kind="san"] { --bar-c: var(--san); }
+.bar[data-kind="pe"] { --bar-c: var(--pe); }
+.bar[data-kind="gen"] { --bar-c: var(--gen); }
+.bar.low .track i { animation: pulse 1.4s ease-in-out infinite; }
+.bar.fl-down .track { animation: shake .35s; }
+.bar.fl-down .bar-n b, .bar.fl-down .bar-n input { color: var(--hp); }
+.bar.fl-up .bar-n b, .bar.fl-up .bar-n input { color: var(--gen); }
+.step { appearance: none; width: 40px; height: 34px; border: 1px solid var(--line); background: var(--bg); border-radius: 6px; font-family: var(--f-mono); font-size: 1.1rem; cursor: pointer; flex: none; }
+.step:hover { border-color: var(--muted); }
+@keyframes pulse { 50% { opacity: .55; } }
+@keyframes shake { 20% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .track i { transition: none; } .bar.low .track i, .bar.fl-down .track { animation: none; } }
+
+/* condicoes */
+.conds { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cond { font-size: .8rem; padding: 2px 9px; border-radius: 99px; background: var(--fg); color: var(--bg); font-weight: 500; }
+.cond.toggle { background: var(--bg); color: var(--fg); border: 1px solid var(--line); cursor: pointer; appearance: none; font-family: inherit; min-height: 30px; }
+.cond.toggle[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+/* ficha do jogador */
+.sheet { display: flex; flex-direction: column; gap: 22px; max-width: 760px; width: 100%; margin: 0 auto; }
+.sheet-head { display: flex; flex-direction: column; gap: 4px; }
+.sheet-name { font-family: var(--f-display); font-weight: 700; font-size: clamp(2.2rem, 8vw, 3.4rem); line-height: 1; text-transform: uppercase; overflow-wrap: anywhere; }
+.bars { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; text-align: center; min-width: 0; }
+.stat span { display: block; font-size: .72rem; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; overflow-wrap: anywhere; }
+.stat b { font-family: var(--f-mono); font-weight: 500; font-size: 1.3rem; overflow-wrap: anywhere; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.item { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.item-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.item-name { font-weight: 700; overflow-wrap: anywhere; }
+.kvs { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .875rem; color: var(--muted); }
+.kvs b { font-family: var(--f-mono); font-weight: 500; color: var(--fg); }
+.tag { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
+.desc { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .925rem; }
+.empty { border: 1px dashed var(--line); border-radius: 8px; padding: 28px 18px; text-align: center; color: var(--muted); }
+.pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+
+/* painel de edicao */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 20; }
+.drawer { position: fixed; top: 0; bottom: 0; right: 0; width: min(620px, 100%); background: var(--bg); border-left: 1px solid var(--line); z-index: 21; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); }
+.drawer-h { display: flex; justify-content: space-between; align-items: center; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px 16px; border-bottom: 1px solid var(--line); }
+.drawer-b { flex: 1; overflow-y: auto; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 24px 16px; display: flex; flex-direction: column; gap: 22px; }
+.drawer-f { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.drawer-f .grow { flex: 1; }
+.sec { display: flex; flex-direction: column; gap: 10px; }
+.sec-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.erow { display: grid; gap: 8px; align-items: end; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.erow.stat-r { grid-template-columns: 1fr 1fr auto; }
+.erow.bar-r { grid-template-columns: 1.2fr .7fr .7fr 1fr auto; }
+.erow.block { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.erow.block .full { grid-column: 1 / -1; }
+@media (max-width: 520px) { .erow.bar-r { grid-template-columns: 1fr 1fr; } .erow.bar-r .rm { grid-column: 1 / -1; } }
+
+#toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 40; max-width: calc(100% - 32px); }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+
+<div class="wrap" id="app"></div>
+<div id="editor"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="/shim.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- sistemas (modelos iniciais de ficha) ---------- */
+  const SYSTEMS = {
+    ordem: {
+      label: 'Ordem Paranormal', tier: 'Círculo', powerKind: 'Ritual', subHint: 'Classe · Origem · NEX',
+      stats: [['AGI', '1'], ['FOR', '1'], ['INT', '1'], ['PRE', '1'], ['VIG', '1'], ['Defesa', '10'], ['Desloc.', '9 m']],
+      bars: [['PV', 'hp', 20], ['SAN', 'san', 20], ['PE', 'pe', 6]],
+      conds: ['Abalado', 'Apavorado', 'Atordoado', 'Caído', 'Cego', 'Confuso', 'Debilitado', 'Enjoado', 'Envenenado', 'Exaurido', 'Fatigado', 'Fraco', 'Imóvel', 'Inconsciente', 'Lento', 'Morrendo', 'Paralisado', 'Sangrando', 'Surdo', 'Vulnerável']
+    },
+    dnd: {
+      label: 'D&D 5e', tier: 'Nível', powerKind: 'Magia', subHint: 'Raça · Classe · Antecedente',
+      stats: [['FOR', '10'], ['DES', '10'], ['CON', '10'], ['INT', '10'], ['SAB', '10'], ['CAR', '10'], ['CA', '10'], ['Desloc.', '9 m'], ['Nível', '1']],
+      bars: [['PV', 'hp', 10]],
+      conds: ['Agarrado', 'Amedrontado', 'Atordoado', 'Caído', 'Cego', 'Contido', 'Surdo', 'Encantado', 'Envenenado', 'Exausto', 'Incapacitado', 'Inconsciente', 'Invisível', 'Paralisado', 'Petrificado']
+    }
+  };
+  const KINDS = { hp: 'Vida', san: 'Sanidade', pe: 'Esforço', gen: 'Outra' };
+  const sys = (k) => SYSTEMS[k] || SYSTEMS.ordem;
+
+  /* ---------- utilidades ---------- */
+  const $ = (s, r) => (r || document).querySelector(s);
+  const num = (v) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
+  const LS = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento */ } }
+  };
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    if (tag === 'button') el.type = 'button';
+    let value;
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'value') value = v;
+      else if (k === 'disabled' || k === 'checked' || k === 'selected') el[k] = !!v;
+      else if (k === 'style') Object.assign(el.style, v);
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const kid of kids.flat(Infinity)) {
+      if (kid == null || kid === false) continue;
+      el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+    }
+    if (value !== undefined) el.value = value;
+    return el;
+  }
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+  }
+  function errMsg(e) {
+    const c = e && e.code;
+    if (c === 'invalid_argument') return 'Você não tem permissão para essa ação.';
+    if (c === 'quota_exceeded') return 'O servidor chegou no limite de salas ou fichas. Apague o que não usa mais.';
+    if (c === 'resource_exhausted') return 'Muitas ações seguidas. Espera um instante.';
+    if (c === 'revoked') return 'A conexão foi perdida. Recarregue a página.';
+    return 'Não deu certo agora. Tenta de novo.';
+  }
+  const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  function genCode() {
+    const a = new Uint32Array(4); crypto.getRandomValues(a);
+    let s = ''; for (const n of a) s += ALPHA[n % ALPHA.length];
+    return s;
+  }
+
+  /* ---------- estado ---------- */
+  const S = {
+    status: 'connecting', db: null, uid: null, canWrite: null,
+    view: 'home', role: null, code: null, room: null, chars: {}, players: {}, got: {},
+    subs: [], tab: 'chars', amt: {}, openConds: {}, myRooms: [],
+    form: { code: '', nick: LS.get('mv.nick') || '' },
+    newChar: { name: '', system: 'ordem' },
+    busy: false, err: '', claiming: false, confirmEnd: false,
+    last: {}, nextLast: {}, editId: null, draft: null, confirmDel: false, raf: 0, timer: 0
+  };
+
+  /* ---------- escrita sequencial por documento ---------- */
+  const Q = {};
+  function enqueue(path, fn) {
+    Q[path] = (Q[path] || Promise.resolve()).then(fn).catch((e) => toast(errMsg(e)));
+    return Q[path];
+  }
+  const charRef = (id) => S.db.doc('rooms/' + S.code + '/chars/' + id);
+  const playerRef = (id) => S.db.doc('rooms/' + S.code + '/players/' + id);
+
+  /* ---------- salas ---------- */
+  async function createRoom() {
+    if (S.busy) return;
+    S.busy = true; S.err = ''; render();
+    try {
+      for (let i = 0; i < 6; i++) {
+        const code = genCode();
+        const ref = S.db.doc('rooms/' + code);
+        const snap = await ref.get();
+        if (snap.exists) continue;
+        await ref.set({ code, hostId: S.uid, createdAt: Date.now() });
+        S.busy = false;
+        await enterRoom(code);
+        return;
+      }
+      S.err = 'Não consegui gerar um código livre. Tenta de novo.';
+    } catch (e) { S.err = errMsg(e); }
+    S.busy = false; render();
+  }
+
+  async function enterRoom(code, nick) {
+    S.busy = true; S.err = ''; render();
+    try {
+      const rs = await S.db.doc('rooms/' + code).get();
+      if (!rs.exists) { S.err = 'Não achei essa sala. Confere o código.'; return; }
+      const room = rs.data();
+      const isHost = room.hostId === S.uid;
+      S.code = code;
+      if (!isHost) {
+        const pref = playerRef(S.uid);
+        const ps = await pref.get();
+        const name = (nick || '').trim() || 'Jogador';
+        if (ps.exists) { if (ps.data().nick !== name) await pref.update({ nick: name }); }
+        else await pref.set({ uid: S.uid, nick: name, charId: '', joinedAt: Date.now() });
+      }
+      S.role = isHost ? 'master' : 'player';
+      S.room = room; S.chars = {}; S.players = {}; S.got = {};
+      S.tab = 'chars'; S.view = 'room'; S.last = {};
+      LS.set('mv.last', code);
+      subscribe(code);
+      clearTimeout(S.timer);
+      S.timer = setTimeout(() => { if (S.view === 'room' && !(S.got.chars && S.got.players)) { S.err = 'A sala está demorando para responder. Verifique sua conexão.'; render(); } }, 10000);
+    } catch (e) { S.err = errMsg(e); S.code = null; }
+    finally { S.busy = false; render(); }
+  }
+
+  function subscribe(code) {
+    const base = 'rooms/' + code;
+    const onErr = (e) => { S.err = errMsg(e); render(); };
+    S.subs.push(S.db.doc(base).onSnapshot((snap) => {
+      if (!snap.exists) {
+        if (!snap.metadata.fromCache && S.view === 'room') { toast('A sala foi encerrada.'); leave(); }
+        return;
+      }
+      S.room = snap.data(); S.got.room = true; sched();
+    }, onErr));
+    S.subs.push(S.db.collection(base + '/chars').onSnapshot((snap) => {
+      const m = {};
+      snap.docs.forEach((d) => { m[d.id] = ingest(d.data()); });
+      S.chars = m; S.got.chars = true; sched();
+    }, onErr));
+    S.subs.push(S.db.collection(base + '/players').onSnapshot((snap) => {
+      const m = {};
+      snap.docs.forEach((d) => { m[d.id] = d.data(); });
+      S.players = m; S.got.players = true;
+      if (S.role === 'player' && !m[S.uid] && !snap.metadata.fromCache && S.view === 'room') {
+        toast('O mestre removeu você da sala.'); leave(); return;
+      }
+      sched();
+    }, onErr));
+  }
+
+  function ingest(d) {
+    const c = clone(d || {});
+    c.bars = c.bars || {}; c.conds = c.conds || {}; c.stats = c.stats || [];
+    c.attacks = c.attacks || []; c.powers = c.powers || []; c.ownerId = c.ownerId || '';
+    return c;
+  }
+
+  function leave() {
+    S.subs.forEach((u) => { try { u(); } catch (e) { /* já encerrado */ } });
+    S.subs = []; clearTimeout(S.timer);
+    S.view = 'home'; S.role = null; S.code = null; S.room = null; S.chars = {}; S.players = {}; S.got = {};
+    S.err = ''; S.confirmEnd = false; S.editId = null; S.draft = null; S.last = {};
+    closeEditor(); loadMyRooms(); render();
+  }
+
+  async function endRoom() {
+    if (!S.confirmEnd) {
+      S.confirmEnd = true; render();
+      setTimeout(() => { S.confirmEnd = false; if (S.view === 'room') render(); }, 4000);
+      return;
+    }
+    const code = S.code;
+    try {
+      for (const id of Object.keys(S.chars)) await charRef(id).delete();
+      for (const id of Object.keys(S.players)) await playerRef(id).delete();
+      await S.db.doc('rooms/' + code).delete();
+      if (LS.get('mv.last') === code) LS.set('mv.last', '');
+    } catch (e) { toast(errMsg(e)); }
+  }
+
+  async function deleteRoomByCode(code) {
+    try {
+      const [cs, ps] = await Promise.all([S.db.collection('rooms/' + code + '/chars').get(), S.db.collection('rooms/' + code + '/players').get()]);
+      for (const d of cs.docs) await S.db.doc('rooms/' + code + '/chars/' + d.id).delete();
+      for (const d of ps.docs) await S.db.doc('rooms/' + code + '/players/' + d.id).delete();
+      await S.db.doc('rooms/' + code).delete();
+      toast('Sala ' + code + ' apagada.');
+    } catch (e) { toast(errMsg(e)); }
+    loadMyRooms();
+  }
+
+  async function loadMyRooms() {
+    if (!S.db || !S.uid) return;
+    try {
+      const snap = await S.db.collection('rooms').where('hostId', '==', S.uid).get();
+      S.myRooms = snap.docs.map((d) => d.id).sort();
+      if (S.view === 'home') render();
+    } catch (e) { /* lista opcional */ }
+  }
+
+  /* ---------- personagens ---------- */
+  function newCharDoc(system, name) {
+    const sy = sys(system), bars = {};
+    sy.bars.forEach((b, i) => { bars['b' + i] = { l: b[0], kind: b[1], cur: b[2], max: b[2], ord: i }; });
+    return {
+      name: name || 'Sem nome', sub: '', system, ownerId: '',
+      stats: sy.stats.map((s) => ({ l: s[0], v: s[1] })),
+      bars, conds: {}, attacks: [], powers: [], notes: '', createdAt: Date.now()
+    };
+  }
+  async function addChar() {
+    const name = S.newChar.name.trim();
+    if (!name) { toast('Dê um nome ao personagem.'); return; }
+    try {
+      await S.db.collection('rooms/' + S.code + '/chars').add(newCharDoc(S.newChar.system, name));
+      S.newChar.name = ''; render();
+    } catch (e) { toast(errMsg(e)); }
+  }
+
+  const sortedBars = (c) => Object.entries(c.bars).map(([id, b]) => Object.assign({ id }, b)).sort((a, b) => (a.ord || 0) - (b.ord || 0));
+
+  function setBar(cid, bid, value) {
+    const c = S.chars[cid]; if (!c || !c.bars[bid]) return;
+    const v = Math.max(0, value);
+    if (v === c.bars[bid].cur) return;
+    c.bars[bid].cur = v; render();
+    enqueue(cid, () => charRef(cid).update({ bars: { [bid]: { cur: v } } }));
+  }
+  function adjustBar(cid, bid, delta) {
+    const c = S.chars[cid]; if (!c || !c.bars[bid]) return;
+    const b = c.bars[bid];
+    let v = b.cur + delta;
+    v = Math.max(0, b.max > 0 ? Math.min(b.max, v) : v);
+    setBar(cid, bid, v);
+  }
+  function toggleCond(cid, name) {
+    const c = S.chars[cid]; if (!c) return;
+    const on = !c.conds[name];
+    c.conds[name] = on; render();
+    enqueue(cid, () => charRef(cid).update({ conds: { [name]: on } }));
+  }
+  function useCost(cid, p) {
+    const c = S.chars[cid]; if (!c) return;
+    const b = c.bars[p.bar]; const cost = num(p.cost);
+    if (!b || cost <= 0) { toast('Esse poder não tem custo.'); return; }
+    if (b.cur < cost) { toast('Falta ' + b.l + ' para usar ' + (p.name || 'isso') + '.'); return; }
+    adjustBar(cid, p.bar, -cost);
+    toast((p.name || 'Poder') + ': −' + cost + ' ' + b.l);
+  }
+
+  async function claim(cid) {
+    if (S.claiming) return;
+    S.claiming = true; render();
+    try {
+      const ref = charRef(cid);
+      let ok = true;
+      try { ok = (await ref.acquire({ holder: S.uid, ttlMs: 4000 })).acquired; } catch (e) { ok = true; }
+      if (!ok) { toast('Alguém está escolhendo essa ficha agora. Tenta de novo.'); return; }
+      const s = await ref.get();
+      if (!s.exists) { toast('Essa ficha não existe mais.'); return; }
+      const d = s.data();
+      if (d.ownerId && d.ownerId !== S.uid) { toast('Essa ficha já tem dono.'); return; }
+      await ref.update({ ownerId: S.uid });
+      await playerRef(S.uid).update({ charId: cid });
+    } catch (e) { toast(errMsg(e)); }
+    finally { S.claiming = false; render(); }
+  }
+  async function release() {
+    const p = S.players[S.uid]; if (!p || !p.charId) return;
+    try {
+      if (S.chars[p.charId] && S.chars[p.charId].ownerId === S.uid) await charRef(p.charId).update({ ownerId: '' });
+      await playerRef(S.uid).update({ charId: '' });
+    } catch (e) { toast(errMsg(e)); }
+  }
+  async function assign(pid, cid) {
+    const p = S.players[pid]; if (!p) return;
+    try {
+      if (p.charId && S.chars[p.charId] && S.chars[p.charId].ownerId === pid) await charRef(p.charId).update({ ownerId: '' });
+      if (cid) {
+        const c = S.chars[cid];
+        if (c && c.ownerId && c.ownerId !== pid && S.players[c.ownerId]) await playerRef(c.ownerId).update({ charId: '' });
+        await charRef(cid).update({ ownerId: pid });
+      }
+      await playerRef(pid).update({ charId: cid || '' });
+    } catch (e) { toast(errMsg(e)); }
+  }
+  async function removePlayer(pid) {
+    const p = S.players[pid]; if (!p) return;
+    try {
+      if (p.charId && S.chars[p.charId] && S.chars[p.charId].ownerId === pid) await charRef(p.charId).update({ ownerId: '' });
+      await playerRef(pid).delete();
+    } catch (e) { toast(errMsg(e)); }
+  }
+
+  /* ---------- pecas de interface ---------- */
+  function copyCode() {
+    const done = () => toast('Código ' + S.code + ' copiado.');
+    try { navigator.clipboard.writeText(S.code).then(done, () => toast('Código da sala: ' + S.code)); }
+    catch (e) { toast('Código da sala: ' + S.code); }
+  }
+  const brand = () => h('div', { class: 'brand' }, 'Mesa Viva');
+
+  function banner() {
+    if (S.status === 'blocked') return h('div', { class: 'banner' }, 'Não consegui falar com o servidor da mesa. Se ele estava dormindo, espere uns 60 segundos e recarregue a página.');
+    if (S.canWrite === false) return h('div', { class: 'banner' }, 'Você está com acesso só de leitura. Peça a quem publicou o site para te dar acesso de Contribuidor, senão não dá para criar nem entrar em salas.');
+    return null;
+  }
+
+  function barEl(cid, b, mode) {
+    const key = cid + ':' + b.id;
+    const pct = b.max > 0 ? Math.max(0, Math.min(100, b.cur / b.max * 100)) : (b.cur > 0 ? 100 : 0);
+    const prev = S.last[key]; S.nextLast[key] = b.cur;
+    const fl = prev != null && prev !== b.cur ? (b.cur < prev ? ' fl-down' : ' fl-up') : '';
+    const low = b.kind === 'hp' && b.max > 0 && b.cur / b.max <= 0.25 ? ' low' : '';
+    const track = h('div', { class: 'track' }, h('i', { style: { width: pct + '%' } }));
+    const numEl = mode === 'master'
+      ? h('span', { class: 'bar-n' },
+          h('input', {
+            type: 'number', inputmode: 'numeric', 'data-fk': 'v-' + key, value: b.cur, 'aria-label': b.l + ' atual',
+            onchange: (e) => setBar(cid, b.id, num(e.target.value)),
+            onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); }
+          }),
+          '/ ' + b.max)
+      : h('span', { class: 'bar-n' }, h('b', null, b.cur), '/ ' + b.max);
+    const amt = S.amt[cid] || 1;
+    return h('div', { class: 'bar' + fl + low, 'data-kind': b.kind || 'gen' },
+      h('div', { class: 'bar-top' }, h('span', { class: 'bar-l' }, b.l), numEl),
+      mode === 'master'
+        ? h('div', { class: 'bar-row' },
+            h('button', { class: 'step', 'aria-label': 'Tirar ' + amt + ' de ' + b.l, onclick: () => adjustBar(cid, b.id, -amt) }, '−'),
+            track,
+            h('button', { class: 'step', 'aria-label': 'Somar ' + amt + ' em ' + b.l, onclick: () => adjustBar(cid, b.id, amt) }, '+'))
+        : track);
+  }
+
+  function condsEl(c) {
+    const on = Object.keys(c.conds).filter((k) => c.conds[k]);
+    if (!on.length) return null;
+    return h('div', { class: 'conds' }, on.map((k) => h('span', { class: 'cond' }, k)));
+  }
+
+  /* ---------- tela inicial ---------- */
+  function viewHome() {
+    const ready = S.status === 'ready' && S.canWrite !== false;
+    const last = LS.get('mv.last');
+    const join = () => {
+      if (S.form.code.length !== 4) { S.err = 'O código tem 4 letras.'; render(); return; }
+      LS.set('mv.nick', S.form.nick.trim());
+      enterRoom(S.form.code, S.form.nick);
+    };
+    return h('div', { class: 'wrap', style: { gap: '20px' } },
+      h('header', { class: 'top' }, brand()),
+      h('p', { class: 'lede' }, 'Fichas, vida, sanidade e condições da mesa num só lugar. O mestre muda um número e a ficha de todo mundo muda junto.'),
+      banner(),
+      S.status === 'connecting' ? h('p', { class: 'hint' }, 'Conectando…') : null,
+      h('div', { class: 'home-grid' },
+        h('section', { class: 'panel' },
+          h('h2', null, 'Criar sala'),
+          h('p', { class: 'hint' }, 'Você vira o mestre: cria personagens e controla vida, sanidade, esforço e condições.'),
+          h('button', { class: 'btn primary', id: 'btn-create', disabled: !ready || S.busy, onclick: createRoom }, 'Criar sala')),
+        h('section', { class: 'panel' },
+          h('h2', null, 'Entrar numa sala'),
+          h('label', { class: 'field' }, h('span', null, 'Código da sala'),
+            h('input', {
+              type: 'text', class: 'code', id: 'f-code', 'data-fk': 'f-code', maxlength: 4, autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', value: S.form.code, placeholder: 'ABCD',
+              oninput: (e) => { S.form.code = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); e.target.value = S.form.code; },
+              onkeydown: (e) => { if (e.key === 'Enter' && ready) join(); }
+            })),
+          h('label', { class: 'field' }, h('span', null, 'Seu apelido'),
+            h('input', {
+              type: 'text', id: 'f-nick', 'data-fk': 'f-nick', maxlength: 24, autocomplete: 'off', value: S.form.nick, placeholder: 'Como o mestre te chama',
+              oninput: (e) => { S.form.nick = e.target.value; },
+              onkeydown: (e) => { if (e.key === 'Enter' && ready) join(); }
+            })),
+          h('button', { class: 'btn primary', id: 'btn-join', disabled: !ready || S.busy, onclick: join }, 'Entrar'),
+          last && last !== S.form.code ? h('button', { class: 'btn ghost sm', onclick: () => enterRoom(last, S.form.nick || LS.get('mv.nick') || '') }, 'Voltar para a sala ' + last) : null)),
+      S.err ? h('p', { class: 'err', role: 'alert' }, S.err) : null,
+      S.myRooms.length
+        ? h('section', { class: 'sec' }, h('h3', null, 'Suas salas de mestre'),
+            h('div', { class: 'rooms-list' }, S.myRooms.map((code) =>
+              h('div', { class: 'row panel', style: { flexDirection: 'row', padding: '10px 14px' } },
+                h('span', { class: 'mono', style: { fontSize: '1.3rem' } }, code),
+                h('span', { class: 'top-actions' },
+                  h('button', { class: 'btn sm primary', onclick: () => enterRoom(code) }, 'Abrir'),
+                  h('button', { class: 'btn sm danger', onclick: (e) => {
+                    const b = e.currentTarget;
+                    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmar'; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Apagar'; }, 3000); }
+                    else deleteRoomByCode(code);
+                  } }, 'Apagar'))))))
+        : null);
+  }
+
+  /* ---------- sala: cabecalho ---------- */
+  function roomHeader() {
+    return h('header', { class: 'top' },
+      brand(),
+      h('div', { class: 'plate' },
+        h('span', { class: 'plate-l' }, 'SALA'),
+        h('span', { class: 'plate-c', id: 'room-code' }, S.code),
+        h('button', { class: 'btn sm', onclick: copyCode }, 'Copiar')),
+      h('div', { class: 'top-actions' },
+        h('span', { class: 'tag' }, S.role === 'master' ? 'Mestre' : 'Jogador'),
+        S.role === 'master' ? h('button', { class: 'btn sm danger' + (S.confirmEnd ? ' armed' : ''), onclick: endRoom }, S.confirmEnd ? 'Confirmar: apagar sala' : 'Encerrar sala') : null,
+        h('button', { class: 'btn sm', onclick: leave }, 'Sair')));
+  }
+
+  /* ---------- mestre ---------- */
+  function ownerOf(cid) {
+    const c = S.chars[cid];
+    const p = c && c.ownerId && S.players[c.ownerId];
+    return p ? p.nick : '';
+  }
+
+  function charCard(cid, c) {
+    const sy = sys(c.system);
+    const amt = S.amt[cid] || 1;
+    const owner = ownerOf(cid);
+    const open = !!S.openConds[cid];
+    return h('article', { class: 'char' },
+      h('div', { class: 'char-head' },
+        h('div', null,
+          h('div', { class: 'char-name' }, c.name),
+          h('div', { class: 'char-sub' }, [sy.label, c.sub].filter(Boolean).join(' · '))),
+        h('button', { class: 'btn sm', onclick: () => openEditor(cid) }, 'Editar')),
+      h('div', null, h('span', { class: 'owner' + (owner ? ' on' : '') }, owner ? 'Jogador: ' + owner : 'Sem jogador')),
+      h('div', { class: 'amt' },
+        h('span', null, 'Valor'),
+        [1, 5, 10].map((n) => h('button', { class: 'chip', 'aria-pressed': amt === n ? 'true' : 'false', onclick: () => { S.amt[cid] = n; render(); } }, n)),
+        h('input', {
+          type: 'number', min: 1, inputmode: 'numeric', 'data-fk': 'amt-' + cid, value: amt, 'aria-label': 'Valor personalizado',
+          onchange: (e) => { S.amt[cid] = Math.max(1, num(e.target.value)); render(); }
+        })),
+      sortedBars(c).map((b) => barEl(cid, b, 'master')),
+      condsEl(c),
+      h('div', null,
+        h('button', { class: 'btn sm ghost', onclick: () => { S.openConds[cid] = !open; render(); } }, open ? 'Fechar condições' : 'Condições')),
+      open ? h('div', { class: 'conds' }, sy.conds.concat(Object.keys(c.conds).filter((k) => sy.conds.indexOf(k) < 0)).map((k) =>
+        h('button', { class: 'cond toggle', 'aria-pressed': c.conds[k] ? 'true' : 'false', onclick: () => toggleCond(cid, k) }, k))) : null);
+  }
+
+  function viewMaster() {
+    const cids = Object.keys(S.chars).sort((a, b) => (S.chars[a].createdAt || 0) - (S.chars[b].createdAt || 0));
+    const pids = Object.keys(S.players).sort((a, b) => (S.players[a].joinedAt || 0) - (S.players[b].joinedAt || 0));
+    const waiting = !(S.got.chars && S.got.players);
+    let body;
+    if (S.tab === 'chars') {
+      body = h('div', { class: 'sec' },
+        h('div', { class: 'toolbar' },
+          h('label', { class: 'field' }, h('span', null, 'Novo personagem'),
+            h('input', {
+              type: 'text', id: 'nc-name', 'data-fk': 'nc-name', maxlength: 40, placeholder: 'Nome', value: S.newChar.name,
+              oninput: (e) => { S.newChar.name = e.target.value; },
+              onkeydown: (e) => { if (e.key === 'Enter') addChar(); }
+            })),
+          h('label', { class: 'field', style: { flex: '0 1 200px' } }, h('span', null, 'Sistema'),
+            h('select', { id: 'nc-sys', 'data-fk': 'nc-sys', value: S.newChar.system, onchange: (e) => { S.newChar.system = e.target.value; } },
+              Object.entries(SYSTEMS).map(([k, v]) => h('option', { value: k }, v.label)))),
+          h('button', { class: 'btn primary', id: 'btn-addchar', onclick: addChar }, 'Criar personagem')),
+        cids.length
+          ? h('div', { class: 'grid' }, cids.map((id) => charCard(id, S.chars[id])))
+          : h('div', { class: 'empty' }, waiting ? 'Carregando a sala…' : 'Nenhum personagem ainda. Crie o primeiro e os jogadores já podem escolher a ficha.'));
+    } else {
+      body = h('div', { class: 'sec' },
+        h('p', { class: 'hint' }, 'Passe o endereço deste site e o código ' + S.code + ' para a galera. Quem entrar aparece aqui na hora.'),
+        pids.length
+          ? h('div', { class: 'list' }, pids.map((pid) => {
+              const p = S.players[pid];
+              return h('div', { class: 'item' },
+                h('div', { class: 'item-top' },
+                  h('span', { class: 'item-name' }, p.nick || 'Jogador'),
+                  h('button', { class: 'btn sm danger', onclick: () => removePlayer(pid) }, 'Remover')),
+                h('label', { class: 'field' }, h('span', null, 'Ficha'),
+                  h('select', {
+                    'data-fk': 'as-' + pid, value: p.charId && S.chars[p.charId] ? p.charId : '',
+                    onchange: (e) => assign(pid, e.target.value)
+                  },
+                    h('option', { value: '' }, 'Nenhuma'),
+                    cids.map((cid) => h('option', { value: cid, disabled: !!S.chars[cid].ownerId && S.chars[cid].ownerId !== pid }, S.chars[cid].name + (S.chars[cid].ownerId && S.chars[cid].ownerId !== pid ? ' (em uso)' : '')))
+                  )));
+            }))
+          : h('div', { class: 'empty' }, waiting ? 'Carregando a sala…' : 'Ninguém entrou ainda.'));
+    }
+    return h('div', { class: 'wrap', style: { gap: '20px' } },
+      roomHeader(), banner(),
+      S.err ? h('p', { class: 'err', role: 'alert' }, S.err) : null,
+      h('div', { class: 'tabs', role: 'tablist' },
+        h('button', { class: 'tab', role: 'tab', 'aria-selected': S.tab === 'chars' ? 'true' : 'false', onclick: () => { S.tab = 'chars'; render(); } }, 'Personagens (' + cids.length + ')'),
+        h('button', { class: 'tab', role: 'tab', 'aria-selected': S.tab === 'players' ? 'true' : 'false', onclick: () => { S.tab = 'players'; render(); } }, 'Jogadores (' + pids.length + ')')),
+      body);
+  }
+
+  /* ---------- jogador ---------- */
+  function sheetView(cid, c) {
+    const sy = sys(c.system);
+    return h('div', { class: 'sheet' },
+      h('div', { class: 'sheet-head' },
+        h('div', { class: 'sheet-name' }, c.name),
+        h('div', { class: 'char-sub' }, [sy.label, c.sub].filter(Boolean).join(' · '))),
+      h('div', { class: 'bars big' }, sortedBars(c).map((b) => barEl(cid, b, 'view'))),
+      condsEl(c),
+      c.stats.length ? h('section', { class: 'sec' }, h('h3', null, 'Atributos'),
+        h('div', { class: 'stats' }, c.stats.map((s) => h('div', { class: 'stat' }, h('span', null, s.l), h('b', null, s.v))))) : null,
+      c.attacks.length ? h('section', { class: 'sec' }, h('h3', null, 'Ataques'),
+        h('div', { class: 'list' }, c.attacks.map((a) => h('div', { class: 'item' },
+          h('div', { class: 'item-top' }, h('span', { class: 'item-name' }, a.name)),
+          h('div', { class: 'kvs' },
+            a.test ? h('span', null, 'Teste ', h('b', null, a.test)) : null,
+            a.dmg ? h('span', null, 'Dano ', h('b', null, a.dmg)) : null,
+            a.crit ? h('span', null, 'Crítico ', h('b', null, a.crit)) : null,
+            a.range ? h('span', null, 'Alcance ', h('b', null, a.range)) : null),
+          a.note ? h('p', { class: 'desc' }, a.note) : null)))) : null,
+      c.powers.length ? h('section', { class: 'sec' }, h('h3', null, sy.powerKind + 's e habilidades'),
+        h('div', { class: 'list' }, c.powers.map((p) => {
+          const b = c.bars[p.bar]; const cost = num(p.cost);
+          return h('div', { class: 'item' },
+            h('div', { class: 'item-top' },
+              h('span', { class: 'item-name' }, p.name, p.tier ? h('span', { class: 'tag', style: { marginLeft: '8px' } }, p.tier) : null),
+              b && cost > 0 ? h('button', { class: 'btn sm primary', disabled: b.cur < cost, onclick: () => useCost(cid, p) }, 'Usar · −' + cost + ' ' + b.l) : null),
+            p.detail ? h('div', { class: 'kvs' }, h('span', null, p.detail)) : null,
+            p.desc ? h('p', { class: 'desc' }, p.desc) : null);
+        }))) : null,
+      c.notes ? h('section', { class: 'sec' }, h('h3', null, 'Anotações'), h('p', { class: 'desc' }, c.notes)) : null,
+      h('div', null, h('button', { class: 'btn sm ghost', onclick: release }, 'Soltar esta ficha')));
+  }
+
+  function viewPlayer() {
+    const me = S.players[S.uid];
+    const mine = Object.keys(S.chars).find((id) => S.chars[id].ownerId === S.uid) || '';
+    const cid = me && me.charId && S.chars[me.charId] && S.chars[me.charId].ownerId === S.uid ? me.charId : mine;
+    const free = Object.keys(S.chars).filter((id) => !S.chars[id].ownerId).sort((a, b) => (S.chars[a].createdAt || 0) - (S.chars[b].createdAt || 0));
+    const waiting = !(S.got.chars && S.got.players);
+    let body;
+    if (cid) body = sheetView(cid, S.chars[cid]);
+    else body = h('div', { class: 'sec' },
+      h('h2', null, 'Escolha sua ficha'),
+      free.length
+        ? h('div', { class: 'pick' }, free.map((id) => {
+            const c = S.chars[id];
+            return h('div', { class: 'item' },
+              h('span', { class: 'item-name' }, c.name),
+              h('span', { class: 'char-sub' }, [sys(c.system).label, c.sub].filter(Boolean).join(' · ')),
+              h('button', { class: 'btn primary', disabled: S.claiming, onclick: () => claim(id) }, 'Escolher'));
+          }))
+        : h('div', { class: 'empty' }, waiting ? 'Carregando a sala…' : 'O mestre ainda não liberou nenhuma ficha. Esta tela atualiza sozinha.'));
+    return h('div', { class: 'wrap', style: { gap: '20px' } },
+      roomHeader(), banner(),
+      S.err ? h('p', { class: 'err', role: 'alert' }, S.err) : null,
+      body);
+  }
+
+  /* ---------- editor do mestre ---------- */
+  function openEditor(cid) {
+    const c = S.chars[cid]; if (!c) return;
+    S.editId = cid; S.confirmDel = false;
+    const d = clone(c);
+    d.barList = sortedBars(c).map((b) => ({ id: b.id, l: b.l, kind: b.kind || 'gen', cur: String(b.cur), cur0: String(b.cur), max: String(b.max) }));
+    S.draft = d;
+    renderEditor();
+  }
+  function closeEditor() { S.editId = null; S.draft = null; const e = $('#editor'); if (e) e.replaceChildren(); }
+
+  async function saveEditor() {
+    const d = S.draft, cid = S.editId; if (!d || !cid) return;
+    const live = S.chars[cid];
+    if (!live) { closeEditor(); return; }
+    const bars = {};
+    d.barList.filter((b) => b.l.trim()).forEach((b, i) => {
+      const id = b.id || ('b' + Date.now().toString(36) + i);
+      const max = Math.max(0, num(b.max));
+      const edited = b.cur !== b.cur0;
+      let cur = edited || !live.bars[b.id] ? num(b.cur) : live.bars[b.id].cur;
+      cur = Math.max(0, max > 0 ? Math.min(max, cur) : cur);
+      bars[id] = { l: b.l.trim(), kind: b.kind, cur, max, ord: i };
+    });
+    const doc = {
+      name: d.name.trim() || 'Sem nome', sub: d.sub.trim(), system: d.system, ownerId: live.ownerId || '',
+      stats: d.stats.filter((s) => s.l.trim()).map((s) => ({ l: s.l.trim(), v: String(s.v).trim() })),
+      bars, conds: live.conds,
+      attacks: d.attacks.filter((a) => a.name.trim()),
+      powers: d.powers.filter((p) => p.name.trim()).map((p) => Object.assign({}, p, { bar: bars[p.bar] ? p.bar : '' })),
+      notes: d.notes, createdAt: live.createdAt || Date.now()
+    };
+    closeEditor();
+    S.chars[cid] = ingest(doc); render();
+    enqueue(cid, () => charRef(cid).set(doc));
+    toast('Ficha salva.');
+  }
+
+  async function deleteChar() {
+    const cid = S.editId; if (!cid) return;
+    if (!S.confirmDel) { S.confirmDel = true; renderEditor(); return; }
+    const c = S.chars[cid];
+    closeEditor();
+    try {
+      if (c && c.ownerId && S.players[c.ownerId]) await playerRef(c.ownerId).update({ charId: '' });
+      await charRef(cid).delete();
+      toast('Personagem apagado.');
+    } catch (e) { toast(errMsg(e)); }
+  }
+
+  function renderEditor() {
+    const root = $('#editor'); if (!root) return;
+    const d = S.draft;
+    if (!d) { root.replaceChildren(); return; }
+    const a = document.activeElement; const fk = a && a.getAttribute && a.getAttribute('data-fk');
+    let sel = null; try { if (a && a.selectionStart != null) sel = [a.selectionStart, a.selectionEnd]; } catch (e) { /* tipo sem seleção */ }
+    const sy = sys(d.system);
+    const txt = (label, obj, key, opts) => h('label', { class: 'field' + (opts && opts.full ? ' full' : '') }, h('span', null, label),
+      h('input', { type: 'text', 'data-fk': (opts && opts.fk) || null, value: obj[key] == null ? '' : obj[key], placeholder: (opts && opts.ph) || null, oninput: (e) => { obj[key] = e.target.value; } }));
+    const rm = (list, i) => h('button', { class: 'btn sm danger rm', 'aria-label': 'Remover', onclick: () => { list.splice(i, 1); renderEditor(); } }, 'Remover');
+
+    const body = h('div', { class: 'drawer-b' },
+      h('section', { class: 'sec' },
+        h('label', { class: 'field' }, h('span', null, 'Nome'), h('input', { type: 'text', 'data-fk': 'e-name', value: d.name, oninput: (e) => { d.name = e.target.value; } })),
+        h('label', { class: 'field' }, h('span', null, 'Linha de apresentação'), h('input', { type: 'text', 'data-fk': 'e-sub', value: d.sub, placeholder: sy.subHint, oninput: (e) => { d.sub = e.target.value; } })),
+        h('label', { class: 'field' }, h('span', null, 'Sistema'),
+          h('select', { 'data-fk': 'e-sys', value: d.system, onchange: (e) => { d.system = e.target.value; renderEditor(); } },
+            Object.entries(SYSTEMS).map(([k, v]) => h('option', { value: k }, v.label))))),
+
+      h('section', { class: 'sec' },
+        h('div', { class: 'sec-h' }, h('h3', null, 'Barras'), h('button', { class: 'btn sm', onclick: () => { d.barList.push({ id: '', l: '', kind: 'gen', cur: '0', cur0: '0', max: '10' }); renderEditor(); } }, '+ Barra')),
+        d.barList.map((b, i) => h('div', { class: 'erow bar-r' },
+          txt('Nome', b, 'l', { fk: 'eb-l-' + i }),
+          h('label', { class: 'field' }, h('span', null, 'Atual'), h('input', { type: 'number', inputmode: 'numeric', 'data-fk': 'eb-c-' + i, value: b.cur, oninput: (e) => { b.cur = e.target.value; } })),
+          h('label', { class: 'field' }, h('span', null, 'Máx.'), h('input', { type: 'number', inputmode: 'numeric', 'data-fk': 'eb-m-' + i, value: b.max, oninput: (e) => { b.max = e.target.value; } })),
+          h('label', { class: 'field' }, h('span', null, 'Cor'), h('select', { 'data-fk': 'eb-k-' + i, value: b.kind, onchange: (e) => { b.kind = e.target.value; } }, Object.entries(KINDS).map(([k, v]) => h('option', { value: k }, v)))),
+          rm(d.barList, i)))),
+
+      h('section', { class: 'sec' },
+        h('div', { class: 'sec-h' }, h('h3', null, 'Atributos'), h('button', { class: 'btn sm', onclick: () => { d.stats.push({ l: '', v: '' }); renderEditor(); } }, '+ Atributo')),
+        d.stats.map((s, i) => h('div', { class: 'erow stat-r' }, txt('Nome', s, 'l', { fk: 'es-l-' + i }), txt('Valor', s, 'v', { fk: 'es-v-' + i }), rm(d.stats, i)))),
+
+      h('section', { class: 'sec' },
+        h('div', { class: 'sec-h' }, h('h3', null, 'Ataques'), h('button', { class: 'btn sm', onclick: () => { d.attacks.push({ name: '', test: '', dmg: '', crit: '', range: '', note: '' }); renderEditor(); } }, '+ Ataque')),
+        d.attacks.map((a, i) => h('div', { class: 'erow block' },
+          txt('Nome', a, 'name', { full: true, fk: 'ea-n-' + i }),
+          txt('Teste', a, 'test', { fk: 'ea-t-' + i, ph: 'Luta +5' }), txt('Dano', a, 'dmg', { fk: 'ea-d-' + i, ph: '1d8+2' }),
+          txt('Crítico', a, 'crit', { fk: 'ea-c-' + i, ph: '19 / x2' }), txt('Alcance', a, 'range', { fk: 'ea-r-' + i, ph: 'Corpo a corpo' }),
+          h('label', { class: 'field full' }, h('span', null, 'Observação'), h('textarea', { 'data-fk': 'ea-o-' + i, value: a.note || '', oninput: (e) => { a.note = e.target.value; } })),
+          h('div', { class: 'full' }, rm(d.attacks, i))))),
+
+      h('section', { class: 'sec' },
+        h('div', { class: 'sec-h' }, h('h3', null, sy.powerKind + 's e habilidades'), h('button', { class: 'btn sm', onclick: () => { d.powers.push({ name: '', tier: '', cost: '', bar: d.barList.length ? (d.barList.find((b) => b.kind === 'pe') || d.barList[d.barList.length - 1]).id : '', detail: '', desc: '' }); renderEditor(); } }, '+ Adicionar')),
+        d.powers.map((p, i) => h('div', { class: 'erow block' },
+          txt('Nome', p, 'name', { full: true, fk: 'ep-n-' + i }),
+          txt(sy.tier, p, 'tier', { fk: 'ep-t-' + i, ph: sy.tier === 'Círculo' ? '1º círculo' : 'Nível 1' }),
+          h('label', { class: 'field' }, h('span', null, 'Custo'), h('input', { type: 'number', inputmode: 'numeric', 'data-fk': 'ep-c-' + i, value: p.cost, oninput: (e) => { p.cost = e.target.value; } })),
+          h('label', { class: 'field full' }, h('span', null, 'Gasta de qual barra'),
+            h('select', { 'data-fk': 'ep-b-' + i, value: p.bar || '', onchange: (e) => { p.bar = e.target.value; } },
+              h('option', { value: '' }, 'Nenhuma (sem botão de usar)'),
+              d.barList.filter((b) => b.id).map((b) => h('option', { value: b.id }, b.l || b.id)))),
+          txt('Execução, alcance, alvo, duração', p, 'detail', { full: true, fk: 'ep-x-' + i, ph: 'Padrão · Curto · 1 ser · Cena' }),
+          h('label', { class: 'field full' }, h('span', null, 'Descrição'), h('textarea', { 'data-fk': 'ep-d-' + i, value: p.desc || '', oninput: (e) => { p.desc = e.target.value; } })),
+          h('div', { class: 'full' }, rm(d.powers, i))))),
+
+      h('section', { class: 'sec' },
+        h('h3', null, 'Anotações (o jogador vê)'),
+        h('textarea', { 'data-fk': 'e-notes', value: d.notes || '', oninput: (e) => { d.notes = e.target.value; } })));
+
+    const panel = h('aside', { class: 'drawer', role: 'dialog', 'aria-label': 'Editar personagem' },
+      h('div', { class: 'drawer-h' }, h('h2', null, 'Editar ficha'), h('button', { class: 'btn sm', onclick: closeEditor }, 'Fechar')),
+      body,
+      h('div', { class: 'drawer-f' },
+        h('button', { class: 'btn primary', id: 'btn-save', onclick: saveEditor }, 'Salvar'),
+        h('button', { class: 'btn', onclick: closeEditor }, 'Cancelar'),
+        h('span', { class: 'grow' }),
+        h('button', { class: 'btn danger' + (S.confirmDel ? ' armed' : ''), onclick: deleteChar }, S.confirmDel ? 'Confirmar: apagar' : 'Apagar personagem')));
+    const keepScroll = $('.drawer-b', root) ? $('.drawer-b', root).scrollTop : 0;
+    root.replaceChildren(h('div', { class: 'scrim', onclick: closeEditor }), panel);
+    const nb = $('.drawer-b', root); if (nb) nb.scrollTop = keepScroll;
+    if (fk) {
+      const n = root.querySelector('[data-fk="' + fk + '"]');
+      if (n) { n.focus(); try { if (sel) n.setSelectionRange(sel[0], sel[1]); } catch (e) { /* tipo sem seleção */ } }
+    }
+  }
+
+  /* ---------- render ---------- */
+  function sched() { if (S.raf) return; S.raf = requestAnimationFrame(() => { S.raf = 0; render(); }); }
+  function render() {
+    const app = $('#app');
+    const a = document.activeElement;
+    const fk = a && a.getAttribute ? a.getAttribute('data-fk') : null;
+    let sel = null; try { if (a && a.selectionStart != null) sel = [a.selectionStart, a.selectionEnd]; } catch (e) { /* tipo sem seleção */ }
+    const y = window.scrollY;
+    S.nextLast = {};
+    const view = S.view === 'room' ? (S.role === 'master' ? viewMaster() : viewPlayer()) : viewHome();
+    app.replaceChildren(view);
+    S.last = S.nextLast;
+    if (fk && !(a && a.closest && a.closest('#editor'))) {
+      const n = app.querySelector('[data-fk="' + fk + '"]');
+      if (n) { n.focus(); try { if (sel) n.setSelectionRange(sel[0], sel[1]); } catch (e) { /* tipo sem seleção */ } }
+    }
+    window.scrollTo(0, y);
+  }
+
+  /* ---------- inicio ---------- */
+  async function init() {
+    render();
+    const fail = setTimeout(() => { if (S.status === 'connecting') { S.status = 'blocked'; render(); } }, 10000);
+    try {
+      const [db, user] = await Promise.all([
+        window.claude && window.claude.use ? window.claude.use('db') : null,
+        window.claude && window.claude.use ? window.claude.use('user') : null
+      ]);
+      clearTimeout(fail);
+      if (!db || !user) { S.status = 'blocked'; render(); return; }
+      S.uid = await user.id();
+      if (!S.uid) { S.status = 'blocked'; render(); return; }
+      S.canWrite = await user.can('data.write');
+      S.db = db; S.status = 'ready';
+      render();
+      loadMyRooms();
+    } catch (e) { clearTimeout(fail); S.status = 'blocked'; render(); }
+  }
+  init();
+})();
+</script>
+
+</body>
+</html>

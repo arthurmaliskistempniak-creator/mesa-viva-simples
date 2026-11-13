@@ -1,0 +1,8 @@
+Mesa Viva - versão com todos os arquivos soltos (sem pasta public).
+
+No GitHub: Add file > Upload files, arraste TODOS os arquivos desta pasta
+(server.js, package.json, render.yaml, index.html, shim.js, favicon.svg)
+e clique em Commit changes. Se já existir um server.js lá, ele será substituído.
+
+No Render: Start Command = node server.js  |  Instance Type = Free.
+Depois: Manual Deploy > Deploy latest commit.
